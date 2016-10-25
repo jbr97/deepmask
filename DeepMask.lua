@@ -92,7 +92,7 @@ function DeepMask:createAttentionBranch(config)
   attentionBranch:add(nn.Linear(128*self.fSz*self.fSz, self.fSz*self.fSz))
   attentionBranch:add(nn.Sigmoid())
 
-  self.attentionBranch = attentionBranch:cuda()
+  self.attentionBranch = nn.Sequential():add(attentionBranch:cuda())
 
   return self.attentionBranch
 end
@@ -105,7 +105,7 @@ function DeepMask:createMaskBranch(config)
   maskBranch:add(nn.Replicate(2, 1))
   maskBranch:add(nn.SplitTable(1))
 
-  local attBranch = self.attentionBranch
+  local attBranch = nn.Sequential():add(self.attentionBranch)
   attBranch:add(nn.Replicate(128, 2))
   
   maskBranch:add(nn.ParallelTable():add(nn.Identity()):add(attBranch))
