@@ -27,8 +27,8 @@ local DeepMask,_ = torch.class('nn.DeepMask','nn.Container')
 function DeepMask:__init(config)
   -- create common trunk
   self:createTrunk(config)
+ 
   -- create attentionBranch
-
   self:createAttentionBranch(config)
 
   -- create mask head
@@ -38,16 +38,18 @@ function DeepMask:__init(config)
   self:createScoreBranch(config)
 
   -- number of parameters
-  local npt,nps,npm = 0,0,0
-  local p1,p2,p3  = self.trunk:parameters(),
-    self.maskBranch:parameters(),self.scoreBranch:parameters()
+  local npt,nps,npm,npa = 0,0,0,0
+  local p1,p2,p3,p4  = self.trunk:parameters(),
+    self.maskBranch:parameters(),self.scoreBranch:parameters(),self.attentionBranch:parameters()
   for k,v in pairs(p1) do npt = npt+v:nElement() end
   for k,v in pairs(p2) do npm = npm+v:nElement() end
   for k,v in pairs(p3) do nps = nps+v:nElement() end
+  for k,v in pairs(p4) do npa = npa+v:nElement() end
   print(string.format('| number of paramaters trunk: %d', npt))
   print(string.format('| number of paramaters mask branch: %d', npm))
   print(string.format('| number of paramaters score branch: %d', nps))
-  print(string.format('| number of paramaters total: %d', npt+nps+npm))
+  print(string.format('| number of paramaters attention branch: %d', npa))
+  print(string.format('| number of paramaters total: %d', npt+nps+npm+npa))
 end
 
 --------------------------------------------------------------------------------
@@ -92,7 +94,7 @@ function DeepMask:createAttentionBranch(config)
   attentionBranch:add(nn.Linear(128*self.fSz*self.fSz, self.fSz*self.fSz))
   attentionBranch:add(nn.Sigmoid())
 
-  self.attentionBranch = nn.Sequential():add(attentionBranch:cuda())
+  self.attentionBranch = attentionBranch:cuda()
 
   return self.attentionBranch
 end
@@ -105,7 +107,7 @@ function DeepMask:createMaskBranch(config)
   maskBranch:add(nn.Replicate(2, 1))
   maskBranch:add(nn.SplitTable(1))
 
-  local attBranch = nn.Sequential():add(self.attentionBranch)
+  local attBranch = self.attentionBranch
   attBranch:add(nn.Replicate(128, 2))
   
   maskBranch:add(nn.ParallelTable():add(nn.Identity()):add(attBranch))
@@ -153,25 +155,25 @@ end
 --------------------------------------------------------------------------------
 -- function: training
 function DeepMask:training()
-  self.trunk:training(); self.maskBranch:training(); self.scoreBranch:training()
+  self.trunk:training(); self.attentionBranch:training(); self.maskBranch:training(); self.scoreBranch:training()
 end
 
 --------------------------------------------------------------------------------
 -- function: evaluate
 function DeepMask:evaluate()
-  self.trunk:evaluate(); self.maskBranch:evaluate(); self.scoreBranch:evaluate()
+  self.trunk:evaluate(); self.attentionBranch:evaluate(); self.maskBranch:evaluate(); self.scoreBranch:evaluate()
 end
 
 --------------------------------------------------------------------------------
 -- function: to cuda
 function DeepMask:cuda()
-  self.trunk:cuda(); self.scoreBranch:cuda(); self.maskBranch:cuda()
+  self.trunk:cuda(); self.attentionBranch:cuda(); self.scoreBranch:cuda(); self.maskBranch:cuda()
 end
 
 --------------------------------------------------------------------------------
 -- function: to float
 function DeepMask:float()
-  self.trunk:float(); self.scoreBranch:float(); self.maskBranch:float()
+  self.trunk:float(); self.attentionBranch:float(); self.scoreBranch:float(); self.maskBranch:float()
 end
 
 --------------------------------------------------------------------------------
@@ -198,6 +200,7 @@ function DeepMask:clone(...)
 
   if select('#',...) > 0 then
     clone.trunk:share(self.trunk,...)
+    clone.attentionBranch:share(self.attentionBranch,...)
     clone.maskBranch:share(self.maskBranch,...)
     clone.scoreBranch:share(self.scoreBranch,...)
   end

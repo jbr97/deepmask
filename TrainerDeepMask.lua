@@ -69,9 +69,10 @@ function Trainer:train(epoch, dataloader)
   local fevalatt   = function() return self.criterion.output,   self.ga end
 
   for n, sample in dataloader:run() do
+    
     -- copy samples to the GPU
     self:copySamples(sample)
-   -- print("select")
+    
     -- forward/backward
     local model, params, feval, optimState
     if sample.head == 1 then
@@ -84,25 +85,20 @@ function Trainer:train(epoch, dataloader)
       model, params = self.attNet, self.pa
       feval,optimState = fevalatt, self.optimState.att
     end
-   -- print(sample)
 
     local outputs = model:forward(self.inputs)
     local lossbatch = self.criterion:forward(outputs, self.labels)
-   -- print("forward")
     model:zeroGradParameters()
     local gradOutputs = self.criterion:backward(outputs, self.labels)
-   -- print("backwardoutput")
-    if sample.head == 1 then gradOutputs:mul(self.inputs:size(1)) end
-   -- print("backward")
+    if sample.head == 1 or sample.head == 3 then gradOutputs:mul(self.inputs:size(1)) end
     model:backward(self.inputs, gradOutputs)
-   -- print("updatepms")
+    
     -- optimize
     optim.sgd(fevaltrunk, self.pt, self.optimState.trunk)
     optim.sgd(feval, params, optimState)
-   -- print("updateloss")
+    
     -- update loss
     self.lossmeter:add(lossbatch)
-   -- print("fuckingend")
   end
 
   -- write log

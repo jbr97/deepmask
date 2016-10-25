@@ -117,7 +117,7 @@ function DataSampler:get(headSampling)
 
   if torch.uniform() > .5 then
     input = image.hflip(input)
-    if headSampling == 1 or headSampling == 3 then label = image.hflip(label) end
+    if headSampling == 1 then label = image.hflip(label) end
   end
 
   -- normalize input
@@ -162,7 +162,6 @@ function DataSampler:attentionSampling()
   att = att:view(self.gSz, self.gSz)
   att[{{box[1], box[1]+box[3]}, {box[2], box[2]+box[4]}}] = 1
   att = att:resize(10, 10)
-  att = att:view(100)
   
   return inp, att
 end
